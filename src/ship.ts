@@ -172,7 +172,11 @@ export class Ship {
     this.vesselScale = profile.scale;
     this.maxSpeed = profile.maxSpeed;
     this.motion.scale.setScalar(profile.scale);
-    this.isometricMount.position.set(0, ISOMETRIC_HEIGHT * profile.scale, ISOMETRIC_AFT * profile.scale);
+    this.viewMount.position.set(
+      0,
+      EYE_HEIGHT / profile.scale,
+      EYE_FORWARD / profile.scale,
+    );
   }
 
 
