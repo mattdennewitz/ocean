@@ -19,6 +19,7 @@ export class Controls {
   lookYaw = 0;
   lookPitch = 0;
   isometricView = false;
+  cameraZoom = 1;
 
   private readonly abortController = new AbortController();
   private readonly heldKeys = new Set<string>();
@@ -39,6 +40,8 @@ export class Controls {
   private readonly intensityOutput: HTMLOutputElement;
   private readonly throttleRange: HTMLInputElement;
   private readonly throttleOutput: HTMLOutputElement;
+  private readonly zoomRange: HTMLInputElement;
+  private readonly zoomOutput: HTMLOutputElement;
   private readonly canvas: HTMLCanvasElement;
   private readonly sea: SeaSimulation;
   private readonly ship: Ship;
@@ -66,6 +69,7 @@ export class Controls {
       <section class="control-panel" aria-label="Voyage controls">
         <div data-intensity></div>
         <div data-throttle></div>
+        <div data-zoom></div>
         <label class="select-control">
           <span>Vessel</span>
           <select data-vessel>
@@ -95,6 +99,8 @@ export class Controls {
     const intensityHost = this.interfaceRoot.querySelector<HTMLElement>('[data-intensity]');
     const throttleGroup = this.createRangeControl('Throttle', 'ship-throttle', 60);
     const throttleHost = this.interfaceRoot.querySelector<HTMLElement>('[data-throttle]');
+    const zoomGroup = this.createRangeControl('Camera zoom', 'camera-zoom', 100, 50, 150);
+    const zoomHost = this.interfaceRoot.querySelector<HTMLElement>('[data-zoom]');
     const heading = this.interfaceRoot.querySelector<HTMLElement>('[data-heading]');
     const speed = this.interfaceRoot.querySelector<HTMLElement>('[data-speed]');
     const portButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-port]');
@@ -110,6 +116,7 @@ export class Controls {
     if (
       !intensityHost ||
       !throttleHost ||
+      !zoomHost ||
       !heading ||
       !speed ||
       !portButton ||
@@ -127,10 +134,13 @@ export class Controls {
     }
     intensityHost.append(intensityGroup.group);
     throttleHost.append(throttleGroup.group);
+    zoomHost.append(zoomGroup.group);
     this.intensityRange = intensityGroup.input;
     this.intensityOutput = intensityGroup.output;
     this.throttleRange = throttleGroup.input;
     this.throttleOutput = throttleGroup.output;
+    this.zoomRange = zoomGroup.input;
+    this.zoomOutput = zoomGroup.output;
     this.headingValue = heading;
     this.speedValue = speed;
     this.portButton = portButton;
@@ -161,6 +171,14 @@ export class Controls {
       { signal },
     );
     this.launchButton.addEventListener('click', () => this.launchRogue(), { signal });
+    this.zoomRange.addEventListener(
+      'input',
+      () => {
+        this.cameraZoom = Number(this.zoomRange.value) / 100;
+        this.zoomOutput.value = `${this.zoomRange.value}%`;
+      },
+      { signal },
+    );
     centerButton.addEventListener(
       'click',
       () => {
@@ -284,7 +302,13 @@ export class Controls {
     this.fullscreenButton.setAttribute('aria-pressed', String(active));
   }
 
-  private createRangeControl(labelText: string, inputId: string, initialValue: number): RangeControl {
+  private createRangeControl(
+    labelText: string,
+    inputId: string,
+    initialValue: number,
+    min = 0,
+    max = 100,
+  ): RangeControl {
     const group = document.createElement('div');
     group.className = 'range-control';
     const heading = document.createElement('div');
@@ -300,8 +324,8 @@ export class Controls {
     const input = document.createElement('input');
     input.id = inputId;
     input.type = 'range';
-    input.min = '0';
-    input.max = '100';
+    input.min = String(min);
+    input.max = String(max);
     input.step = '1';
     input.value = String(initialValue);
     input.setAttribute('aria-label', labelText);

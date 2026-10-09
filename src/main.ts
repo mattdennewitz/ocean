@@ -6,6 +6,8 @@ import { Ship } from './ship.ts';
 import './style.css';
 
 const HORIZON_COLOR = '#80766d';
+const CAMERA_FOV = 70;
+
 const appElement = document.querySelector<HTMLElement>('#app');
 if (!appElement) throw new Error('Missing application root');
 const app: HTMLElement = appElement;
@@ -56,7 +58,7 @@ function startScene(): void {
   const ocean = new Ocean(sea);
   const width = canvas.clientWidth || window.innerWidth;
   const height = canvas.clientHeight || window.innerHeight;
-  const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 5000);
+  const camera = new THREE.PerspectiveCamera(CAMERA_FOV, width / height, 0.1, 5000);
 
   const skyMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -126,6 +128,11 @@ function startScene(): void {
     const dt = Math.max(0, Math.min(0.05, (now - lastFrameTime) / 1000));
     lastFrameTime = now;
     controls.update(dt);
+    const cameraFov = CAMERA_FOV / controls.cameraZoom;
+    if (camera.fov !== cameraFov) {
+      camera.fov = cameraFov;
+      camera.updateProjectionMatrix();
+    }
     ship.advance(dt, controls.throttle, controls.rudder);
     sea.update(dt, ship.worldX, ship.worldZ);
     ship.followSea(dt, sea);
