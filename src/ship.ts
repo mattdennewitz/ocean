@@ -20,6 +20,19 @@ const HULL_STATIONS: HullStation[] = [
   { z: 12, halfBeam: 1.28, bottomY: -1.02, deckY: 0.58 },
 ];
 
+export type VesselSize = 'schooner' | 'trawler' | 'barge';
+
+interface VesselProfile {
+  scale: number;
+  maxSpeed: number;
+}
+
+const VESSEL_PROFILES: Record<VesselSize, VesselProfile> = {
+  schooner: { scale: 0.72, maxSpeed: 11.5 },
+  trawler: { scale: 1, maxSpeed: 10 },
+  barge: { scale: 1.55, maxSpeed: 6.8 },
+};
+
 const EYE_HEIGHT = 4.2;
 const EYE_FORWARD = 5;
 const ISOMETRIC_HEIGHT = 24;
@@ -56,6 +69,9 @@ export class Ship {
   private smoothedHeave = 0;
   private smoothedPitch = 0;
   private smoothedRoll = 0;
+  private vesselScale = 1;
+  private maxSpeed = VESSEL_PROFILES.trawler.maxSpeed;
+
 
   constructor() {
     this.root.add(this.motion, this.isometricMount);
@@ -151,13 +167,22 @@ export class Ship {
     this.trackGeometry(this.boxGeometry);
   }
 
+  setVesselSize(size: VesselSize): void {
+    const profile = VESSEL_PROFILES[size];
+    this.vesselScale = profile.scale;
+    this.maxSpeed = profile.maxSpeed;
+    this.motion.scale.setScalar(profile.scale);
+    this.isometricMount.position.set(0, ISOMETRIC_HEIGHT * profile.scale, ISOMETRIC_AFT * profile.scale);
+  }
+
+
   advance(dt: number, throttle: number, rudder: number): void {
     const step = Number.isFinite(dt) ? Math.max(0, dt) : 0;
     const normalizedThrottle = Number.isFinite(throttle)
       ? Math.max(0, Math.min(1, throttle))
       : 0;
     const normalizedRudder = Number.isFinite(rudder) ? Math.max(-1, Math.min(1, rudder)) : 0;
-    const targetSpeed = 10 * normalizedThrottle;
+    const targetSpeed = this.maxSpeed * normalizedThrottle;
     this.speed += (targetSpeed - this.speed) * (1 - Math.exp(-step / 2));
     this.heading += normalizedRudder * 0.18 * (this.speed / 10) * step;
     this.worldX += Math.sin(this.heading) * this.speed * step;
@@ -174,14 +199,16 @@ export class Ship {
     const stern = this.hullSamples[1];
     const port = this.hullSamples[2];
     const starboard = this.hullSamples[3];
-    sea.sample(forwardX * 10, forwardZ * 10, bow);
-    sea.sample(-forwardX * 10, -forwardZ * 10, stern);
-    sea.sample(-starboardX * 2.5, -starboardZ * 2.5, port);
-    sea.sample(starboardX * 2.5, starboardZ * 2.5, starboard);
+    const length = 10 * this.vesselScale;
+    const beam = 2.5 * this.vesselScale;
+    sea.sample(forwardX * length, forwardZ * length, bow);
+    sea.sample(-forwardX * length, -forwardZ * length, stern);
+    sea.sample(-starboardX * beam, -starboardZ * beam, port);
+    sea.sample(starboardX * beam, starboardZ * beam, starboard);
 
     const targetHeave = (bow.height + stern.height + port.height + starboard.height) / 4;
-    const targetPitch = Math.max(-0.45, Math.min(0.45, (bow.height - stern.height) / 20));
-    const targetRoll = Math.max(-0.35, Math.min(0.35, (starboard.height - port.height) / 5));
+    const targetPitch = Math.max(-0.45, Math.min(0.45, (bow.height - stern.height) / (length * 2)));
+    const targetRoll = Math.max(-0.35, Math.min(0.35, (starboard.height - port.height) / (beam * 2)));
     const step = Number.isFinite(dt) ? Math.max(0, dt) : 0;
     const blend = 1 - Math.exp(-step / 0.6);
     this.smoothedHeave += (targetHeave - this.smoothedHeave) * blend;

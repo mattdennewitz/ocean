@@ -102,6 +102,45 @@ canvas {
   pointer-events: auto;
 }
 
+.menu-hidden .control-panel {
+  display: none;
+}
+
+.menu-reveal-button {
+  position: absolute;
+  right: clamp(16px, 3vw, 42px);
+  bottom: clamp(16px, 3vh, 30px);
+  pointer-events: auto;
+}
+
+.menu-reveal-button[hidden] {
+  display: none;
+}
+
+.select-control {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 640;
+}
+
+.select-control select {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 1px solid rgb(222 204 173 / 24%);
+  border-radius: 2px;
+  color: #ece3d2;
+  background: rgb(232 218 192 / 6%);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.select-control option {
+  color: #1b1d25;
+}
+
 .range-control {
   display: grid;
   min-width: 0;
@@ -193,6 +232,12 @@ button:disabled {
   background: rgb(178 123 73 / 25%);
 }
 
+.interface-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
 .rogue-button {
   border-color: rgb(197 158 112 / 42%);
   background: rgb(137 97 66 / 24%);
@@ -271,6 +316,16 @@ button:disabled {
     border-radius: 2px;
   }
 
+
+  .menu-reveal-button {
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .select-control,
+  .interface-actions {
+    grid-column: 1 / -1;
+  }
   .range-control {
     gap: 3px;
   }

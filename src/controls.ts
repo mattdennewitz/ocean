@@ -1,5 +1,5 @@
 import type { SeaSimulation } from './sea.ts';
-import type { Ship } from './ship.ts';
+import type { Ship, VesselSize } from './ship.ts';
 
 const THROTTLE_RATE = 0.25;
 const LOOK_SENSITIVITY = 0.003;
@@ -29,6 +29,9 @@ export class Controls {
   private readonly starboardButton: HTMLButtonElement;
   private readonly launchButton: HTMLButtonElement;
   private readonly viewButton: HTMLButtonElement;
+  private readonly menuRevealButton: HTMLButtonElement;
+  private readonly fullscreenButton: HTMLButtonElement;
+  private readonly vesselSelect: HTMLSelectElement;
   private readonly statusLine: HTMLParagraphElement;
   private readonly headingValue: HTMLElement;
   private readonly speedValue: HTMLElement;
@@ -59,9 +62,18 @@ export class Controls {
           <div class="voyage-metric"><span>SPEED</span><strong data-speed></strong></div>
         </div>
       </header>
+      <button class="menu-reveal-button" type="button" data-menu-reveal hidden>Show menu</button>
       <section class="control-panel" aria-label="Voyage controls">
         <div data-intensity></div>
         <div data-throttle></div>
+        <label class="select-control">
+          <span>Vessel</span>
+          <select data-vessel>
+            <option value="schooner">Schooner · small</option>
+            <option value="trawler" selected>Trawler · medium</option>
+            <option value="barge">Barge · large</option>
+          </select>
+        </label>
         <div class="steering-buttons">
           <button class="hold-button" type="button" data-port>Port</button>
           <button class="hold-button" type="button" data-starboard>Starboard</button>
@@ -69,6 +81,10 @@ export class Controls {
         <button class="secondary-button" type="button" data-center>Center view</button>
         <button class="secondary-button view-toggle-button" type="button" aria-pressed="false" data-view-toggle>Isometric view</button>
         <button class="rogue-button" type="button" data-rogue>Send rogue wave</button>
+        <div class="interface-actions">
+          <button class="secondary-button" type="button" data-hide-menu>Hide menu</button>
+          <button class="secondary-button" type="button" aria-pressed="false" data-fullscreen>Full screen</button>
+        </div>
         <p class="wave-status" aria-live="polite" hidden></p>
         <p class="control-help">W/S throttle · A/D steer · drag to look · R rogue wave</p>
       </section>
@@ -86,6 +102,10 @@ export class Controls {
     const launchButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-rogue]');
     const centerButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-center]');
     const viewButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-view-toggle]');
+    const menuRevealButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-menu-reveal]');
+    const hideMenuButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-hide-menu]');
+    const fullscreenButton = this.interfaceRoot.querySelector<HTMLButtonElement>('[data-fullscreen]');
+    const vesselSelect = this.interfaceRoot.querySelector<HTMLSelectElement>('[data-vessel]');
     const statusLine = this.interfaceRoot.querySelector<HTMLParagraphElement>('.wave-status');
     if (
       !intensityHost ||
@@ -97,6 +117,10 @@ export class Controls {
       !launchButton ||
       !centerButton ||
       !viewButton ||
+      !menuRevealButton ||
+      !hideMenuButton ||
+      !fullscreenButton ||
+      !vesselSelect ||
       !statusLine
     ) {
       throw new Error('Unable to build sailing controls');
@@ -113,6 +137,9 @@ export class Controls {
     this.starboardButton = starboardButton;
     this.launchButton = launchButton;
     this.viewButton = viewButton;
+    this.menuRevealButton = menuRevealButton;
+    this.fullscreenButton = fullscreenButton;
+    this.vesselSelect = vesselSelect;
     this.statusLine = statusLine;
     this.statusLine.hidden = true;
 
@@ -153,6 +180,14 @@ export class Controls {
       },
       { signal },
     );
+    hideMenuButton.addEventListener('click', () => this.setMenuHidden(true), { signal });
+    menuRevealButton.addEventListener('click', () => this.setMenuHidden(false), { signal });
+    fullscreenButton.addEventListener('click', () => void this.toggleFullscreen(), { signal });
+    vesselSelect.addEventListener(
+      'change',
+      () => this.ship.setVesselSize(this.vesselSelect.value as VesselSize),
+      { signal },
+    );
     this.listenForHold(this.portButton, this.portPointers);
     this.listenForHold(this.starboardButton, this.starboardPointers);
 
@@ -166,7 +201,9 @@ export class Controls {
     document.addEventListener('focusin', this.onFocusIn, { signal });
     document.addEventListener('visibilitychange', this.onVisibilityChange, { signal });
     window.addEventListener('blur', this.onWindowBlur, { signal });
+    document.addEventListener('fullscreenchange', this.onFullscreenChange, { signal });
     this.updateHud();
+    this.updateFullscreenButton();
   }
 
   update(dt: number): void {
@@ -226,6 +263,25 @@ export class Controls {
     this.clearHeldInput();
     this.abortController.abort();
     this.interfaceRoot.remove();
+  }
+
+  private setMenuHidden(hidden: boolean): void {
+    this.interfaceRoot.classList.toggle('menu-hidden', hidden);
+    this.menuRevealButton.hidden = !hidden;
+  }
+
+  private async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    await this.canvas.parentElement?.requestFullscreen();
+  }
+
+  private updateFullscreenButton(): void {
+    const active = document.fullscreenElement !== null;
+    this.fullscreenButton.textContent = active ? 'Exit full screen' : 'Full screen';
+    this.fullscreenButton.setAttribute('aria-pressed', String(active));
   }
 
   private createRangeControl(labelText: string, inputId: string, initialValue: number): RangeControl {
@@ -349,6 +405,10 @@ export class Controls {
 
   private onWindowBlur = (): void => {
     this.clearHeldInput();
+  };
+
+  private onFullscreenChange = (): void => {
+    this.updateFullscreenButton();
   };
 
   private onLookPointerDown = (event: PointerEvent): void => {
